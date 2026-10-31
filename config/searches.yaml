@@ -1,0 +1,103 @@
+time_window: r2592000
+
+countries:
+  - name: United States
+    location: United States
+  - name: Canada
+    location: Canada
+
+roles:
+  data_engineer:
+    label: Data Engineer
+    keywords: ["data engineer"]
+    include:
+      - '\bdata (platform |pipeline |infrastructure )?engineer\b'
+      - '\bbig data engineer\b'
+      - '\betl (developer|engineer)\b'
+      - '\bdata warehouse engineer\b'
+      - '\bsoftware engineer\W+(data|data platform|data infrastructure)\b'
+    exclude:
+      - '\bmanager\b'
+      - '\bdirector\b'
+      - '\bhead of\b'
+      - '\bsales\b'
+      - '\banalytics engineer\b'
+      - '\barchitect\b'
+    boundary:
+      - '\bsoftware engineer\b'
+      - '\banalytics engineer\b'
+      - '\bdata architect\b'
+      - '\bbi developer\b'
+  forward_deployed_engineer:
+    label: Forward Deployed Engineer
+    keywords: ["forward deployed engineer"]
+    include:
+      - '\bforward[- ]deployed\b.*\bengineer\b'
+      - '\bFDE\b'
+    exclude:
+      - '\bmanager\b'
+      - '\bdirector\b'
+      - '\bhead of\b'
+      - '\bstrategist\b'
+      - '\bproduct manager\b'
+    boundary:
+      - '\b(solutions|field|deployment|customer|implementation) engineer\b'
+  ai_engineer:
+    label: AI Engineer
+    keywords: ["ai engineer"]
+    include:
+      - '\b(applied |generative |gen ?)?ai engineer\b'
+      - '\bai/ml engineer\b'
+      - '\bml/ai engineer\b'
+      - '\bllm engineer\b'
+      - '\bai (software|platform|solutions|research) engineer\b'
+      - '\bsoftware engineer\W+(ai|llm|ai platform)\b'
+      - '\bsoftware engineer\s*\((ai|llm)\)'
+    exclude:
+      - '\bmanager\b'
+      - '\bdirector\b'
+      - '\bhead of\b'
+      - '\bsales\b'
+      - '\bdata annotation\b'
+      - '\bai trainer\b'
+      - '\bprompt writer\b'
+      - '\bresearch scientist\b'
+    boundary:
+      - '\bmachine learning engineer\b'
+      - '\bml engineer\b'
+      - '\bmlops\b'
+
+slicing:
+  cap: 1000
+  dual_sort_on_capped_leaf: true
+  sub_locations: false
+
+http:
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36"
+  timeout_seconds: 30
+  min_delay_seconds: 2.0
+  max_delay_seconds: 5.0
+  backoff_base_seconds: 30
+  backoff_max_seconds: 600
+  max_consecutive_blocks: 5
+
+llm:
+  enabled: true
+  model: claude-haiku-5-5
+  effort: low
+  max_tokens: 2048
+  min_confidence_latam: 0.8
+  max_calls_per_run: 6000
+
+report:
+  include_unclear: false
+  audit_sample_per_label: 10
+  top_technologies: 30
+
+paths:
+  database: data/jobscan.duckdb
+  reports_dir: reports
+  logs_dir: data/logs
+  technologies: config/technologies.yaml
+  eligibility_rules: config/eligibility_rules.yaml
+  remote_rules: config/remote_rules.yaml

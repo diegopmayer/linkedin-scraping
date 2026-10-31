@@ -1,0 +1,99 @@
+rules_version: elig_rules_v1
+
+negation_before: '\b(not|no need to|need not|needn''t|don''t need to|do not need to|doesn''t need to|does not need to|isn''t|is not|aren''t|are not|without requiring|regardless of|irrespective of|no requirement)\b'
+negation_after: '^\W*(?:is |are )?(?:not (?:required|necessary|needed|a requirement|mandatory)|optional|not needed|is not needed)\b'
+product_context: '\b(we help|helping|our (customers|clients|platform|product|users)|platform (for|that)|serv(e|es|ing) (customers|clients)|on behalf of)\b'
+
+restrictive:
+  - {id: us_citizen, restriction_type: citizenship, pattern: '\bU\.?\s?S\.?\s+citizens?(hip)?\b'}
+  - {id: citizen_of_country, restriction_type: citizenship, pattern: '\bcitizens?(hip)? (of|in) (the )?(United States|U\.?S\.?A?\.?|USA|Canada)\b'}
+  - {id: american_canadian_citizen, restriction_type: citizenship, pattern: '\b(American|Canadian) citizens?(hip)?\b'}
+  - {id: usc_gc, restriction_type: citizenship, pattern: '\bUSC\s*/\s*GC\b', case_sensitive: true}
+  - {id: usc_only, restriction_type: citizenship, pattern: '\bUSC\b(?=\s*(only|or|/|,|and)\b)', case_sensitive: true}
+  - {id: gc_holder, restriction_type: citizenship, pattern: '\bGC\s*(holders?|only)\b', case_sensitive: true}
+  - {id: green_card, restriction_type: citizenship, pattern: '\bgreen[- ]card\b'}
+  - {id: permanent_resident, restriction_type: citizenship, pattern: '\bpermanent residen(t|ts|cy)\b'}
+  - {id: canadian_pr, restriction_type: citizenship, pattern: '\bCanadian (PR|permanent resident)\b'}
+  - {id: us_person, restriction_type: citizenship, pattern: '\bU\.?S\.?\s+persons?\b'}
+  - {id: itar, restriction_type: citizenship, pattern: '\bITAR\b', case_sensitive: true}
+  - {id: export_control, restriction_type: citizenship, pattern: '\bexport[- ]control(led)?\b'}
+  - {id: ear, restriction_type: citizenship, pattern: '\bEAR\s*(regulations|controlled|requirements)\b', case_sensitive: true}
+
+  - {id: must_reside, restriction_type: residency, pattern: '\bmust (be )?(reside|resident|residing|live|living|located|based) (in|within) (the )?(U\.?S\.?A?\.?|USA|United States|Canada|North America|one of the following)\b'}
+  - {id: only_open_to_country, restriction_type: residency, pattern: '\b(only|exclusively) (open to|available to|considering|accepting|hiring) (candidates|applicants|residents|people)?[^.;]{0,40}\b(U\.?S\.?A?\.?|USA|United States|Canada)\b'}
+  - {id: residents_of_states, restriction_type: location_list, pattern: '\b(open to |available to |hiring )?residents of (the )?(following )?(states|provinces)\b'}
+  - {id: states_list, restriction_type: location_list, pattern: '\b(eligible|hire|hiring|open) (in|to candidates in) (the )?following (U\.?S\.? )?(states|provinces|locations)\b'}
+  - {id: country_based_only, restriction_type: residency, pattern: '\b(U\.?S\.?|United States|Canada|Canadian)[- ]based (candidates|applicants|employees) only\b'}
+  - {id: not_open_outside, restriction_type: residency, pattern: '\bnot (open|available) to (candidates|applicants|people|residents)?\s*(located |based |living )?outside (of )?(the )?(U\.?S\.?A?\.?|USA|United States|Canada|North America)\b'}
+  - {id: cannot_hire_outside, restriction_type: residency, pattern: '\b(cannot|can''t|can not|unable to|do not|don''t|won''t|will not|are not able to) (hire|employ|consider|accept)[^.;]{0,40}\b(outside (of )?(the )?(U\.?S\.?|United States|Canada)|LATAM|Latin America|South America|international(ly)?|other countries)\b'}
+  - {id: us_only_remote, restriction_type: residency, pattern: '\bremote\W{0,3}\(?(U\.?S\.?|USA|United States|Canada) only\)?'}
+
+  - {id: authorized_to_work, restriction_type: work_authorization, pattern: '\b(legally )?(authori[sz]ed|eligible|permitted|able|allowed) to work (in|for) (the )?(U\.?S\.?A?\.?|USA|United States|Canada)\b'}
+  - {id: work_authorization, restriction_type: work_authorization, pattern: '\b(U\.?S\.?|United States|Canadian|Canada) work authori[sz]ation\b'}
+  - {id: work_authorization_required, restriction_type: work_authorization, pattern: '\bwork authori[sz]ation (is )?(required|needed)\b'}
+  - {id: e_verify, restriction_type: work_authorization, pattern: '\bE-?Verify\b'}
+  - {id: i9, restriction_type: work_authorization, pattern: '\bI-9\b', case_sensitive: true}
+  - {id: ssn_sin, restriction_type: work_authorization, pattern: '\b(valid )?(SSN|SIN)\b', case_sensitive: true}
+  - {id: social_security, restriction_type: work_authorization, pattern: '\bsocial (security|insurance) number\b'}
+
+  - {id: no_sponsor_verb, restriction_type: visa, pattern: '\b(will not|won''t|cannot|can''t|can not|unable to|does not|do not|don''t|doesn''t|not able to|is not able to) (currently )?(provide |offer |support )?(visa |immigration |employment )?sponsor(ship|ing)?\b'}
+  - {id: no_sponsorship, restriction_type: visa, pattern: '\bno (visa |immigration )?sponsorship\b'}
+  - {id: sponsorship_not_available, restriction_type: visa, pattern: '\b(visa )?sponsorship (is )?not (available|provided|offered|possible)\b'}
+  - {id: without_sponsorship, restriction_type: visa, pattern: '\bwithout (the need for |requiring )?(current or future |now or in the future )?(visa |employer )?sponsorship\b'}
+  - {id: h1b, restriction_type: visa, pattern: '\bH-?1B\b'}
+  - {id: tn_visa, restriction_type: visa, pattern: '\bTN (visa|status)\b'}
+  - {id: opt_cpt, restriction_type: visa, pattern: '\b(OPT|CPT|EAD|STEM OPT)\b', case_sensitive: true}
+
+  - {id: security_clearance, restriction_type: clearance, pattern: '\bsecurity clearance\b'}
+  - {id: secret_clearance, restriction_type: clearance, pattern: '\b(active|current|existing) (secret|top secret|TS/SCI)\b'}
+  - {id: ts_sci, restriction_type: clearance, pattern: '\bTS/SCI\b'}
+  - {id: public_trust, restriction_type: clearance, pattern: '\bpublic trust (clearance|position)\b'}
+
+  - {id: w2_only, restriction_type: employment_type, pattern: '\bW-?2 (only|employees? only|employment only|basis only)\b'}
+  - {id: no_c2c, restriction_type: employment_type, pattern: '\bno (C2C|corp[- ]to[- ]corp|third[- ]part(y|ies)|1099)\b'}
+  - {id: t4_employee, restriction_type: employment_type, pattern: '\bT4 employ(ee|ment)\b'}
+
+  - {id: pt_only_us_citizens, restriction_type: citizenship, pattern: '\bsomente (para )?cidad[ãa]os (americanos|norte-americanos|canadenses)\b'}
+  - {id: pt_visa_required, restriction_type: visa, pattern: '\b(necess[áa]rio|obrigat[óo]rio) (ter |possuir )?(um )?(visto|autoriza[çc][ãa]o)( de trabalho)? (nos|para os|no|para o) (EUA|Estados Unidos|Canad[áa])\b'}
+  - {id: pt_must_reside, restriction_type: residency, pattern: '\b(residir|morar) (nos|no) (EUA|Estados Unidos|Canad[áa])\b'}
+  - {id: es_only_us_citizens, restriction_type: citizenship, pattern: '\bsolo ciudadanos (estadounidenses|canadienses)\b'}
+  - {id: es_must_reside, restriction_type: residency, pattern: '\bresidir en (EE\.? ?UU\.?|Estados Unidos|Canad[áa])\b'}
+  - {id: es_work_permit, restriction_type: work_authorization, pattern: '\bpermiso de trabajo (en|para) (EE\.? ?UU\.?|Estados Unidos|Canad[áa])\b'}
+
+positive_hints:
+  - '\bLATAM\b'
+  - '\bLatin America(n)?\b'
+  - '\bSouth America\b'
+  - '\bBra[sz]il(ian)?\b'
+  - '\bnear[- ]?shore\b'
+  - '\bwork from anywhere\b'
+  - '\banywhere in the world\b'
+  - '\bworldwide\b'
+  - '\bglobal(ly)? remote\b'
+  - '\bany country\b'
+  - '\boutside (of )?the (U\.?S\.?|United States)\b'
+  - '\bAmericas time zones?\b'
+  - '\binternational contractors?\b'
+  - '\b(Deel|Remote\.com|Oyster|Rippling|Multiplier|Velocity Global|employer of record|EOR)\b'
+  - '\bUTC-?3\b'
+  - '\baceitamos candidatos\b'
+  - '\btrabajo remoto desde\b'
+
+weak_hints:
+  - '\bremote\W{0,3}\(?(U\.?S\.?|USA|United States|Canada)\)?'
+  - '\b(EST|PST|CST|MST|ET|PT|CT) (hours|time zone|timezone)\b'
+  - '\b(travel|visit|come) to (our )?(HQ|headquarters|office)\b'
+  - '\bstate restrictions apply\b'
+  - '\b401\(?k\)?\b'
+  - '\b(US|U\.S\.) (health|dental|vision)\b'
+  - '\bRRSP\b'
+  - '\bW-?2\b'
+  - '\bquarterly (on-?site|offsites?|in-person)\b'
+  - '\b(customer|client) sites?\b'
+
+stock_text_markers:
+  - '\bequal (employment )?opportunity\b'
+  - '\breasonable accommodations?\b'
+  - '\bwithout regard to\b'
+  - '\b(race|color|religion|sex|national origin|disability|veteran status)\b'
+  - '\bbenefits (include|package)\b'

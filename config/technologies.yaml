@@ -1,0 +1,168 @@
+version: tech_v1
+technologies:
+  - {canonical: Python, category: Languages, aliases: ["Python"]}
+  - {canonical: SQL, category: Languages, aliases: ["SQL"]}
+  - {canonical: Scala, category: Languages, aliases: ["Scala"]}
+  - {canonical: Java, category: Languages, aliases: ["Java"]}
+  - canonical: Go
+    category: Languages
+    aliases: ["Golang", "Go language", "Go lang"]
+    patterns: ['Go(?=\s*(?:,|/|and|or)\s*(?:Python|Java|Rust|Scala|Kotlin|C\+\+|TypeScript))', '(?<=Python, )Go', '(?<=Python and )Go', '(?<=Python/)Go']
+    case_sensitive: true
+  - {canonical: TypeScript, category: Languages, aliases: ["TypeScript"]}
+  - {canonical: JavaScript, category: Languages, aliases: ["JavaScript", "Node.js", "NodeJS"]}
+  - canonical: R
+    category: Languages
+    aliases: []
+    patterns: ['R(?=\s*(?:,|/|and|or)\s*(?:Python|SQL|Scala|Java|SAS))', '(?<=Python, )R', '(?<=Python and )R', '(?<=Python/)R', '(?<=SQL, )R']
+    case_sensitive: true
+  - {canonical: Rust, category: Languages, aliases: ["Rust"]}
+  - {canonical: "C#", category: Languages, aliases: ["C#", ".NET"]}
+  - {canonical: "C++", category: Languages, aliases: ["C++"]}
+  - {canonical: Bash, category: Languages, aliases: ["Bash", "shell scripting"]}
+
+  - canonical: Spark
+    category: Processing
+    aliases: ["Apache Spark", "PySpark", "Spark SQL", "Spark Streaming"]
+    patterns: ['Spark']
+    context_required: '(data|cluster|job|pipeline|databricks|scala|python|sql|etl|batch|stream|hadoop|distributed)'
+  - {canonical: Flink, category: Processing, aliases: ["Apache Flink", "Flink"]}
+  - {canonical: Apache Beam, category: Processing, aliases: ["Apache Beam"]}
+  - {canonical: Pandas, category: Processing, aliases: ["Pandas"]}
+  - {canonical: Polars, category: Processing, aliases: ["Polars"]}
+  - {canonical: DuckDB, category: Processing, aliases: ["DuckDB"]}
+  - {canonical: Hadoop, category: Processing, aliases: ["Hadoop", "HDFS"]}
+  - {canonical: Trino, category: Processing, aliases: ["Trino", "Presto"]}
+
+  - {canonical: Airflow, category: Orchestration, aliases: ["Apache Airflow", "Airflow", "MWAA"]}
+  - {canonical: Dagster, category: Orchestration, aliases: ["Dagster"]}
+  - {canonical: Prefect, category: Orchestration, aliases: ["Prefect"]}
+  - {canonical: dbt, category: Orchestration, aliases: ["dbt", "dbt Core", "dbt Cloud", "data build tool"]}
+  - {canonical: Argo, category: Orchestration, aliases: ["Argo Workflows", "Argo CD", "ArgoCD"]}
+
+  - {canonical: Snowflake, category: Warehouses/Lakehouse, aliases: ["Snowflake"]}
+  - {canonical: BigQuery, category: Warehouses/Lakehouse, aliases: ["BigQuery", "Big Query"]}
+  - {canonical: Redshift, category: Warehouses/Lakehouse, aliases: ["Redshift"]}
+  - {canonical: Databricks, category: Warehouses/Lakehouse, aliases: ["Databricks"]}
+  - {canonical: Delta Lake, category: Warehouses/Lakehouse, aliases: ["Delta Lake", "Delta tables"]}
+  - canonical: Iceberg
+    category: Warehouses/Lakehouse
+    aliases: ["Apache Iceberg"]
+    patterns: ['Iceberg']
+    context_required: '(table|lakehouse|format|parquet|catalog|delta|hudi|data lake)'
+  - {canonical: Hudi, category: Warehouses/Lakehouse, aliases: ["Apache Hudi", "Hudi"]}
+  - {canonical: Synapse, category: Warehouses/Lakehouse, aliases: ["Azure Synapse", "Synapse Analytics"]}
+  - {canonical: ClickHouse, category: Warehouses/Lakehouse, aliases: ["ClickHouse"]}
+  - {canonical: Microsoft Fabric, category: Warehouses/Lakehouse, aliases: ["Microsoft Fabric"]}
+
+  - {canonical: Kafka, category: Streaming/Messaging, aliases: ["Apache Kafka", "Kafka", "Confluent"]}
+  - {canonical: Kinesis, category: Streaming/Messaging, aliases: ["Kinesis"]}
+  - {canonical: Pub/Sub, category: Streaming/Messaging, aliases: ["Pub/Sub", "PubSub"]}
+  - {canonical: RabbitMQ, category: Streaming/Messaging, aliases: ["RabbitMQ"]}
+  - {canonical: Event Hubs, category: Streaming/Messaging, aliases: ["Event Hubs", "EventHubs"]}
+
+  - {canonical: AWS, category: Cloud, aliases: ["AWS", "Amazon Web Services"]}
+  - {canonical: GCP, category: Cloud, aliases: ["GCP", "Google Cloud", "Google Cloud Platform"]}
+  - {canonical: Azure, category: Cloud, aliases: ["Azure", "Microsoft Azure"]}
+
+  - {canonical: S3, category: Cloud Services, aliases: ["Amazon S3", "AWS S3", "S3"], case_sensitive: true}
+  - {canonical: AWS Glue, category: Cloud Services, aliases: ["AWS Glue", "Glue jobs", "Glue Catalog"]}
+  - {canonical: EMR, category: Cloud Services, aliases: ["Amazon EMR", "AWS EMR", "EMR"], case_sensitive: true}
+  - canonical: AWS Lambda
+    category: Cloud Services
+    aliases: ["AWS Lambda"]
+    patterns: ['Lambda']
+    context_required: '(aws|amazon|serverless|api gateway|s3|step functions)'
+  - {canonical: Step Functions, category: Cloud Services, aliases: ["Step Functions"]}
+  - canonical: Athena
+    category: Cloud Services
+    aliases: ["Amazon Athena", "AWS Athena"]
+    patterns: ['Athena']
+    context_required: '(aws|amazon|s3|glue|query|sql)'
+  - canonical: Dataflow
+    category: Cloud Services
+    aliases: ["Google Dataflow", "Cloud Dataflow"]
+    patterns: ['Dataflow']
+    context_required: '(gcp|google|beam|bigquery|pub/sub)'
+  - {canonical: Dataproc, category: Cloud Services, aliases: ["Dataproc"]}
+  - {canonical: Azure Data Factory, category: Cloud Services, aliases: ["Azure Data Factory", "Data Factory"]}
+
+  - {canonical: PostgreSQL, category: Databases, aliases: ["PostgreSQL", "Postgres"]}
+  - {canonical: MySQL, category: Databases, aliases: ["MySQL"]}
+  - {canonical: SQL Server, category: Databases, aliases: ["SQL Server", "MSSQL", "T-SQL"]}
+  - {canonical: MongoDB, category: Databases, aliases: ["MongoDB"]}
+  - {canonical: DynamoDB, category: Databases, aliases: ["DynamoDB"]}
+  - {canonical: Cassandra, category: Databases, aliases: ["Cassandra"]}
+  - {canonical: Elasticsearch, category: Databases, aliases: ["Elasticsearch", "Elastic Search", "OpenSearch"]}
+  - {canonical: Redis, category: Databases, aliases: ["Redis"]}
+
+  - {canonical: Docker, category: Infra/DevOps, aliases: ["Docker", "containers"]}
+  - {canonical: Kubernetes, category: Infra/DevOps, aliases: ["Kubernetes", "K8s", "EKS", "GKE", "AKS"]}
+  - {canonical: Terraform, category: Infra/DevOps, aliases: ["Terraform"]}
+  - {canonical: CI/CD, category: Infra/DevOps, aliases: ["CI/CD", "CI / CD", "continuous integration"]}
+  - {canonical: GitHub Actions, category: Infra/DevOps, aliases: ["GitHub Actions"]}
+  - {canonical: Git, category: Infra/DevOps, aliases: ["Git"]}
+
+  - {canonical: Looker, category: BI, aliases: ["Looker", "LookML"]}
+  - {canonical: Tableau, category: BI, aliases: ["Tableau"]}
+  - {canonical: Power BI, category: BI, aliases: ["Power BI", "PowerBI"]}
+  - {canonical: Metabase, category: BI, aliases: ["Metabase"]}
+  - {canonical: Superset, category: BI, aliases: ["Apache Superset", "Superset"]}
+
+  - {canonical: LLMs, category: AI/LLM, aliases: ["LLM", "LLMs", "large language model", "large language models"]}
+  - {canonical: RAG, category: AI/LLM, aliases: ["retrieval-augmented generation", "retrieval augmented generation"], patterns: ['RAG'], case_sensitive: true}
+  - {canonical: AI Agents, category: AI/LLM, aliases: ["AI agents", "agentic", "multi-agent", "LLM agents"]}
+  - {canonical: LangChain, category: AI/LLM, aliases: ["LangChain"]}
+  - {canonical: LangGraph, category: AI/LLM, aliases: ["LangGraph"]}
+  - {canonical: LlamaIndex, category: AI/LLM, aliases: ["LlamaIndex", "Llama Index"]}
+  - {canonical: OpenAI API, category: AI/LLM, aliases: ["OpenAI"]}
+  - {canonical: Anthropic API, category: AI/LLM, aliases: ["Anthropic"]}
+  - canonical: Gemini
+    category: AI/LLM
+    aliases: []
+    patterns: ['Gemini']
+    context_required: '(google|llm|vertex|model|gpt|claude|openai)'
+  - {canonical: Amazon Bedrock, category: AI/LLM, aliases: ["Amazon Bedrock", "AWS Bedrock"]}
+  - {canonical: Vertex AI, category: AI/LLM, aliases: ["Vertex AI"]}
+  - {canonical: Azure OpenAI, category: AI/LLM, aliases: ["Azure OpenAI"]}
+  - {canonical: Vector Databases, category: AI/LLM, aliases: ["vector database", "vector databases", "vector DB", "vector DBs", "vector store", "vector stores"]}
+  - {canonical: Pinecone, category: AI/LLM, aliases: ["Pinecone"]}
+  - {canonical: pgvector, category: AI/LLM, aliases: ["pgvector"]}
+  - {canonical: Qdrant, category: AI/LLM, aliases: ["Qdrant"]}
+  - {canonical: Weaviate, category: AI/LLM, aliases: ["Weaviate"]}
+  - {canonical: Milvus, category: AI/LLM, aliases: ["Milvus"]}
+  - {canonical: Embeddings, category: AI/LLM, aliases: ["embeddings", "embedding model", "embedding models"]}
+  - {canonical: Fine-tuning, category: AI/LLM, aliases: ["fine-tuning", "fine tuning", "LoRA", "QLoRA"]}
+  - {canonical: LLM Evals, category: AI/LLM, aliases: ["evals", "LLM evaluation", "model evaluation"]}
+  - {canonical: Guardrails, category: AI/LLM, aliases: ["guardrails"]}
+  - {canonical: MCP, category: AI/LLM, aliases: ["Model Context Protocol"], patterns: ['MCP'], case_sensitive: true}
+  - {canonical: Prompt Engineering, category: AI/LLM, aliases: ["prompt engineering"]}
+
+  - {canonical: PyTorch, category: ML/MLOps, aliases: ["PyTorch"]}
+  - {canonical: TensorFlow, category: ML/MLOps, aliases: ["TensorFlow"]}
+  - {canonical: scikit-learn, category: ML/MLOps, aliases: ["scikit-learn", "sklearn"]}
+  - {canonical: Hugging Face, category: ML/MLOps, aliases: ["Hugging Face", "HuggingFace"]}
+  - {canonical: vLLM, category: ML/MLOps, aliases: ["vLLM"]}
+  - {canonical: MLflow, category: ML/MLOps, aliases: ["MLflow"]}
+  - {canonical: Kubeflow, category: ML/MLOps, aliases: ["Kubeflow"]}
+  - {canonical: SageMaker, category: ML/MLOps, aliases: ["SageMaker"]}
+  - {canonical: Weights & Biases, category: ML/MLOps, aliases: ["Weights & Biases", "W&B", "wandb"]}
+  - {canonical: ONNX, category: ML/MLOps, aliases: ["ONNX"]}
+  - {canonical: CUDA, category: ML/MLOps, aliases: ["CUDA"]}
+  - {canonical: XGBoost, category: ML/MLOps, aliases: ["XGBoost"]}
+
+  - {canonical: Great Expectations, category: Data Quality/Governance, aliases: ["Great Expectations"]}
+  - canonical: Soda
+    category: Data Quality/Governance
+    aliases: ["Soda Core", "SodaCL"]
+    patterns: ['Soda']
+    context_required: '(data quality|checks|observability|tests)'
+  - canonical: Monte Carlo
+    category: Data Quality/Governance
+    aliases: []
+    patterns: ['Monte Carlo']
+    context_required: '(observability|data quality|data reliability|lineage)'
+  - {canonical: Unity Catalog, category: Data Quality/Governance, aliases: ["Unity Catalog"]}
+  - {canonical: DataHub, category: Data Quality/Governance, aliases: ["DataHub"]}
+  - {canonical: OpenLineage, category: Data Quality/Governance, aliases: ["OpenLineage"]}
+  - {canonical: Collibra, category: Data Quality/Governance, aliases: ["Collibra"]}
