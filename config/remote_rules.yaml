@@ -1,0 +1,33 @@
+rules_version: remote_rules_v1
+
+false_hybrid: '\bhybrid[- ](cloud|environment|architecture|infrastructure|model|approach|search|workflows?|systems?|deployments?|data|solutions?)\b'
+
+hybrid:
+  - '\bhybrid\b'
+  - '\b\d+\s*(?:-\s*\d+\s*)?(?:days?|x)\s*(?:per|a|/|each)?\s*week\s*(?:in|at|from)\s*(?:the|our)?\s*(?:office|HQ|headquarters)\b'
+  - '\b(?:in|at) (?:the|our) office \d+\s*(?:days?|x)\b'
+  - '\bin[- ]office (?:days?|requirements?|presence)\b'
+  - '\bremote (?:or|and|/) hybrid flexibility\b'
+
+onsite:
+  - '\bon[- ]?site\b'
+  - '\bin[- ]person\b'
+  - '\bin[- ]office\b'
+  - '\brelocat(?:e|ion) (?:to|is required|required)\b'
+  - '\bmust (?:be able to )?commute\b'
+
+remote:
+  - '\b(?:fully|100%|completely|entirely) remote\b'
+  - '\bremote[- ]first\b'
+  - '\bwork from (?:home|anywhere)\b'
+  - '\bremote\b'
+
+negations:
+  - '\b(?:not|no|non)[- ]hybrid\b'
+  - '\bno (?:office|on-?site|in-person) (?:requirement|presence|days?)\b'
+  - '\bnever (?:required|need) to (?:come|go) (?:in|to the office)\b'
+
+soft_onsite:
+  - '\b(?:occasional|optional|quarterly|annual|yearly|rare) (?:on-?site|in-person|travel|offsites?|meetups?|visits?)\b'
+  - '\b(?:on-?site|in-person) (?:offsites?|meetups?|events?|onboarding)\b'
+  - '\b(?:customer|client) (?:on-?site|sites?)\b'
