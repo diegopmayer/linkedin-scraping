@@ -165,7 +165,7 @@ def test_unclear_hidden_by_default_and_shown_on_request(small_settings: Settings
     llm = FakeLlm(keyword_llm)
     outcome = run_once(small_settings, small_store, make_world(), llm)
     report = (outcome.report_dir / "report.md").read_text(encoding="utf-8")
-    assert "unclear jobs hidden" in report
+    assert "unclear postings hidden" in report
     assert "## Unclear" not in report
     pipeline = build_pipeline(small_settings, small_store, make_world(), llm)
     shown = (pipeline.report(outcome.run_id, include_unclear=True) / "report.md").read_text(encoding="utf-8")
@@ -285,3 +285,64 @@ def test_no_facet_split_by_default_marks_capped_root(base_settings: Settings, tm
     assert len(store.capped_slices(outcome.run_id)) == 1
     assert not [u for u in world.log if "f_E=" in u]
     store.close()
+
+
+DUP_BODY = " ".join(
+    f"<p>Point {n}: you will design reliable pipeline number {n} with Python, Spark and dbt for team {n}.</p>"
+    for n in range(1, 25)
+)
+DUP_COMPANY = {"500": "Globex", "501": "Globex", "502": "Globex", "505": "Globex",
+               "503": "Initech", "504": "Initech"}
+
+
+def dup_detail(job_id: str) -> tuple[int, str]:
+    latam = "<p>Fully remote. We hire contractors across Latin America via Deel.</p>"
+    body = {
+        "500": latam + DUP_BODY + "<p>Office: Austin.</p>",
+        "501": latam + DUP_BODY + "<p>Office: Denver.</p>",
+        "502": latam + DUP_BODY + "<p>Office: Boston.</p>",
+        "503": "<p>Remote.</p>" + DUP_BODY,
+        "504": "<p>Remote.</p>" + DUP_BODY + "<p>Applicants must be authorized to work in the United States.</p>",
+        "505": latam + "<p>A different job: Kafka streaming and Go services for the payments team.</p>",
+    }[job_id]
+    return 200, detail_page("Senior Data Engineer", body)
+
+
+def test_copies_of_a_posting_are_counted_once(small_settings: Settings, small_store: DuckDbStore) -> None:
+    ids = ["500", "501", "502", "503", "504", "505"]
+    world = World(count_for=lambda url: "6", cards_for=lambda url: [(i, "Senior Data Engineer") for i in ids],
+                  detail_for=dup_detail, company_for=DUP_COMPANY.get)
+    outcome = run_once(small_settings, small_store, world, FakeLlm(keyword_llm), countries={"United States"})
+    out = outcome.report_dir
+
+    counts = read_csv(out / "counts.csv")[0]
+    assert int(counts["qualified_count"]) == 6
+    assert int(counts["unique_postings"]) == 3
+    assert (counts["unique_latam_friendly"], counts["unique_unclear"], counts["unique_us_ca_only"]) == ("2", "0", "1")
+
+    can_apply = read_csv(out / "can_apply.csv")
+    by_id = {row["job_id"]: row for row in can_apply}
+    assert set(by_id) == {"500", "505"}
+    assert by_id["500"]["copies"] == "3"
+    assert by_id["505"]["copies"] == "1"
+
+    all_jobs = {row["job_id"]: row for row in read_csv(out / "jobs_all.csv")}
+    assert len(all_jobs) == 6
+    assert {all_jobs[i]["posting_id"] for i in ("500", "501", "502")} == {"500"}
+    assert all_jobs["503"]["posting_id"] == all_jobs["504"]["posting_id"] == "503"
+    assert all_jobs["503"]["eligibility_label"] == "UNCLEAR"
+
+    tech = {(row["dimension"], row["technology"]): row for row in read_csv(out / "technologies.csv")}
+    assert tech[("overall", "Spark")]["jobs"] == "2"
+    assert tech[("overall", "Python")]["pct_of_jobs"] == "66.7"
+
+    report = (out / "report.md").read_text(encoding="utf-8")
+    assert "### Merged copies" in report and "| Globex | Senior Data Engineer | 3 |" in report
+
+
+def test_initech_copies_merge_despite_restriction_sentence() -> None:
+    from jobscan.domain.dedup import shingles, similarity
+    from jobscan.domain.text import html_to_text
+
+    a, b = (html_to_text(dup_detail(i)[1]) for i in ("503", "504"))
+    assert similarity(shingles(a), shingles(b)) >= 0.9

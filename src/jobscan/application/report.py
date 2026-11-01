@@ -8,9 +8,11 @@ from typing import Any
 
 from jobscan.adapters.store import DuckDbStore
 from jobscan.config import Settings
+from jobscan.domain.dedup import group_postings
 from jobscan.domain.technologies import TechExtractor
 
 UNKNOWN_TERM_MIN_JOBS = 3
+LARGEST_POSTINGS_SHOWN = 10
 LABEL_TITLES = {
     "LATAM_FRIENDLY": "Can apply (LATAM-friendly)",
     "UNCLEAR": "Unclear (not stated)",
@@ -54,6 +56,9 @@ class ReportWriter:
         out = self._settings.path(self._settings.app.paths.reports_dir) / run_id
         review = out / "review"
         run = self._store.get_run(run_id) or {}
+        mapping = group_postings(self._store.dedup_candidates(run_id),
+                                 min_similarity=self._settings.app.dedup.min_similarity)
+        self._store.put_postings(run_id, mapping)
         funnel = self._store.funnel(run_id)
         for row in funnel:
             row["role"] = _role_label(self._settings, row["role"])
@@ -66,10 +71,11 @@ class ReportWriter:
             "country": self._store.tech_ranking(run_id, by="country", limit=top_n),
         }
         all_jobs = self._store.qualified_jobs(run_id)
-        for job in all_jobs:
+        postings = self._store.qualified_postings(run_id)
+        for job in (*all_jobs, *postings):
             job["evidence"] = _evidence(job.pop("evidence_json"))
-        can_apply = [job for job in all_jobs if job["eligibility_label"] == "LATAM_FRIENDLY"]
-        unclear = [job for job in all_jobs if job["eligibility_label"] == "UNCLEAR"]
+        can_apply = [job for job in postings if job["eligibility_label"] == "LATAM_FRIENDLY"]
+        unclear = [job for job in postings if job["eligibility_label"] == "UNCLEAR"]
         audit = self._store.audit_sample(run_id, per_label=self._settings.app.report.audit_sample_per_label)
         for row in audit:
             row["evidence"] = _evidence(row.pop("evidence_json"))
@@ -113,6 +119,7 @@ class ReportWriter:
         include_unclear: bool,
     ) -> str:
         details = self._store.detail_stats(run_id)
+        largest = self._store.largest_postings(run_id, limit=LARGEST_POSTINGS_SHOWN)
         capped = self._store.capped_slices(run_id)
         low_coverage = [row for row in self._store.coverage(run_id) if (row["coverage_pct"] or 0) < 95]
         parts: list[str] = [
@@ -131,17 +138,21 @@ class ReportWriter:
         parts += [
             "\n## Counts\n",
             "Displayed = LinkedIn's banner (\"+\" means at least). Collected = unique jobs reached. "
-            "Title-matched = title fits the role. Qualified = title-matched, remote (or unknown), open.\n",
+            "Title-matched = title fits the role. Qualified = title-matched, remote (or unknown), open. "
+            "Postings = qualified jobs with copies merged (same company, same title, near-identical "
+            "description, e.g. one job posted once per city). The last three columns count postings; a "
+            "posting takes the most restrictive label of its copies.\n",
             _md_table(funnel, [
                 ("role", "Role"), ("country", "Country"), ("displayed_count_raw", "Displayed"),
                 ("collected_count", "Collected"), ("role_matched_count", "Title-matched"),
-                ("qualified_count", "Qualified"), ("latam_friendly", "LATAM-friendly"),
-                ("unclear", "Unclear"), ("us_ca_only", "US/CA-only"),
+                ("qualified_count", "Qualified"), ("unique_postings", "Postings"),
+                ("unique_latam_friendly", "LATAM-friendly"), ("unique_unclear", "Unclear"),
+                ("unique_us_ca_only", "US/CA-only"),
             ]),
             "\n**All roles, each job once:** "
             f"collected {totals['collected']}, title-matched {totals['role_matched']}, qualified {totals['qualified']}"
-            f" → LATAM-friendly **{totals['latam_friendly']}**, unclear {totals['unclear']}, "
-            f"US/CA-only {totals['us_ca_only']}.\n",
+            f" → {totals['unique_postings']} postings: LATAM-friendly **{totals['unique_latam_friendly']}**, "
+            f"unclear {totals['unique_unclear']}, US/CA-only {totals['unique_us_ca_only']}.\n",
             f"\nDetail pages: {details['fetched_ok']} of {details['role_matched']} title-matched jobs fetched; "
             f"{details['closed']} closed.\n",
         ]
@@ -158,25 +169,35 @@ class ReportWriter:
                                                   ("filters_json", "Filters"), ("displayed_count", "Displayed"),
                                                   ("collected", "Collected"), ("coverage_pct", "Coverage %")]))
 
+        parts.append("\n### Merged copies\n")
+        if largest:
+            parts.append("Postings with the most copies (each counted once above):\n")
+            parts.append(_md_table(largest, [("company", "Company"), ("title", "Title"), ("copies", "Copies"),
+                                             ("eligibility_label", "Label")]))
+        else:
+            parts.append("No duplicate postings found.\n")
+
         job_columns = [("title", "Title"), ("company", "Company"), ("roles", "Roles"), ("location_text", "Location"),
-                       ("posted_at", "Posted"), ("url", "Link"), ("evidence", "Evidence")]
-        parts.append(f"\n## {LABEL_TITLES['LATAM_FRIENDLY']}: {len(can_apply)} jobs\n")
-        parts.append("Each job's evidence is a sentence quoted from its description.\n")
+                       ("copies", "Copies"), ("posted_at", "Posted"), ("url", "Link"), ("evidence", "Evidence")]
+        parts.append(f"\n## {LABEL_TITLES['LATAM_FRIENDLY']}: {len(can_apply)} postings\n")
+        parts.append("Each posting's evidence is a sentence quoted from its description. Copies = how many times "
+                     "it was posted (the link is the newest one; `can_apply.csv` lists every location).\n")
         parts.append(_md_table(can_apply, job_columns))
         if include_unclear:
-            parts.append(f"\n## {LABEL_TITLES['UNCLEAR']}: {len(unclear)} jobs\n")
+            parts.append(f"\n## {LABEL_TITLES['UNCLEAR']}: {len(unclear)} postings\n")
             parts.append("These posts don't say who can be hired. They are NOT in the can-apply list.\n")
             parts.append(_md_table(unclear, job_columns[:-1]))
         else:
-            parts.append(f"\n_{len(unclear)} unclear jobs hidden; run `jobscan report --include-unclear` to list "
-                         "them._\n")
+            parts.append(f"\n_{len(unclear)} unclear postings hidden; run `jobscan report --include-unclear` to "
+                         "list them._\n")
 
         parts.append("\n## Technologies\n")
-        parts.append("Share of qualified jobs that mention each technology (each job counted once).\n")
+        parts.append("Share of qualified postings that mention each technology (copies of a posting counted "
+                     "once).\n")
         parts.append("\n### Overall\n")
         parts.append(_md_table(rankings["overall"], [("rank", "#"), ("technology", "Technology"),
-                                                     ("category", "Category"), ("jobs", "Jobs"),
-                                                     ("pct_of_jobs", "% of jobs")]))
+                                                     ("category", "Category"), ("jobs", "Postings"),
+                                                     ("pct_of_jobs", "% of postings")]))
         for dimension, title in (("role", "By role"), ("label", "By eligibility"), ("country", "By country")):
             parts.append(f"\n### {title}\n")
             rows = rankings[dimension]
@@ -184,7 +205,8 @@ class ReportWriter:
                 label = _role_label(self._settings, group) if dimension == "role" else group
                 parts.append(f"\n**{label}**\n\n")
                 parts.append(_md_table([r for r in rows if r["group"] == group][:15], [
-                    ("rank", "#"), ("technology", "Technology"), ("jobs", "Jobs"), ("pct_of_jobs", "% of jobs")]))
+                    ("rank", "#"), ("technology", "Technology"), ("jobs", "Postings"),
+                    ("pct_of_jobs", "% of postings")]))
 
         parts.append("\n## Classification method\n")
         parts.append(_md_table(self._store.method_split(run_id), [("eligibility_label", "Label"),

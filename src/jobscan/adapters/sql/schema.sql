@@ -152,12 +152,36 @@ CREATE TABLE IF NOT EXISTS job_technologies (
     PRIMARY KEY (job_id, tech_id)
 );
 
+-- One row per qualified job: the job id that represents its posting (copies share it).
+-- Rebuilt by the report step; a job without a row is its own posting.
+CREATE TABLE IF NOT EXISTS postings (
+    run_id VARCHAR NOT NULL,
+    job_id VARCHAR NOT NULL,
+    posting_id VARCHAR NOT NULL,
+    PRIMARY KEY (run_id, job_id)
+);
+
 CREATE OR REPLACE VIEW v_qualified AS
 SELECT c.run_id, c.job_id, c.remote_status, c.eligibility_label, c.method, c.confidence,
        c.restriction_type, c.evidence_json, c.reasoning
 FROM classifications c
 JOIN job_details d ON d.job_id = c.job_id
 WHERE d.fetched_ok AND NOT d.is_closed AND c.remote_status IN ('REMOTE', 'UNKNOWN');
+
+-- Qualified jobs with their posting. A posting takes the most restrictive label of its
+-- copies (US_CA_ONLY > UNCLEAR > LATAM_FRIENDLY), so dedup can never add a LATAM job.
+CREATE OR REPLACE VIEW v_qualified_postings AS
+WITH m AS (
+    SELECT q.*, coalesce(p.posting_id, q.job_id) AS posting_id
+    FROM v_qualified q
+    LEFT JOIN postings p ON p.run_id = q.run_id AND p.job_id = q.job_id
+)
+SELECT m.*,
+       CASE max(CASE m.eligibility_label WHEN 'US_CA_ONLY' THEN 3 WHEN 'UNCLEAR' THEN 2 ELSE 1 END)
+                OVER (PARTITION BY m.run_id, m.posting_id)
+            WHEN 3 THEN 'US_CA_ONLY' WHEN 2 THEN 'UNCLEAR' ELSE 'LATAM_FRIENDLY' END AS posting_label,
+       count(*) OVER (PARTITION BY m.run_id, m.posting_id) AS copies
+FROM m;
 
 CREATE OR REPLACE VIEW v_funnel AS
 WITH srch AS (
@@ -191,11 +215,15 @@ SELECT srch.run_id, srch.role, srch.country,
        count(DISTINCT q.job_id) AS qualified_count,
        count(DISTINCT CASE WHEN q.eligibility_label = 'LATAM_FRIENDLY' THEN q.job_id END) AS latam_friendly,
        count(DISTINCT CASE WHEN q.eligibility_label = 'UNCLEAR' THEN q.job_id END) AS unclear,
-       count(DISTINCT CASE WHEN q.eligibility_label = 'US_CA_ONLY' THEN q.job_id END) AS us_ca_only
+       count(DISTINCT CASE WHEN q.eligibility_label = 'US_CA_ONLY' THEN q.job_id END) AS us_ca_only,
+       count(DISTINCT q.posting_id) AS unique_postings,
+       count(DISTINCT CASE WHEN q.posting_label = 'LATAM_FRIENDLY' THEN q.posting_id END) AS unique_latam_friendly,
+       count(DISTINCT CASE WHEN q.posting_label = 'UNCLEAR' THEN q.posting_id END) AS unique_unclear,
+       count(DISTINCT CASE WHEN q.posting_label = 'US_CA_ONLY' THEN q.posting_id END) AS unique_us_ca_only
 FROM srch
 LEFT JOIN collected c ON c.run_id = srch.run_id AND c.role = srch.role AND c.country = srch.country
 LEFT JOIN matched m ON m.run_id = srch.run_id AND m.role = srch.role AND m.country = srch.country
-LEFT JOIN v_qualified q ON q.job_id = m.job_id AND q.run_id = m.run_id
+LEFT JOIN v_qualified_postings q ON q.job_id = m.job_id AND q.run_id = m.run_id
 GROUP BY srch.run_id, srch.role, srch.country, srch.displayed_count_raw, srch.displayed_count, srch.is_lower_bound;
 
 INSERT INTO schema_version (version) SELECT 1 WHERE NOT EXISTS (SELECT 1 FROM schema_version WHERE version = 1);

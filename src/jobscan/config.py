@@ -72,6 +72,10 @@ class ReportConfig(_Strict):
     top_technologies: int = Field(default=30, ge=1)
 
 
+class DedupConfig(_Strict):
+    min_similarity: float = Field(default=0.9, gt=0, le=1)
+
+
 class PathsConfig(_Strict):
     database: str = "data/jobscan.duckdb"
     reports_dir: str = "reports"
@@ -146,6 +150,7 @@ class AppConfig(_Strict):
     http: HttpConfig
     llm: LlmConfig = LlmConfig()
     report: ReportConfig = ReportConfig()
+    dedup: DedupConfig = DedupConfig()
     paths: PathsConfig = PathsConfig()
 
 
