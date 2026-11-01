@@ -1,6 +1,6 @@
-rules_version: remote_rules_v1
+rules_version: remote_rules_v2
 
-false_hybrid: '\bhybrid[- ](cloud|environment|architecture|infrastructure|model|approach|search|workflows?|systems?|deployments?|data|solutions?)\b'
+false_hybrid: '\bhybrid[- ](cloud|environment|architecture|infrastructure|model|approach|search|workflows?|systems?|deployments?|data|solutions?|engineering|technical|customer[- ]facing)\b'
 
 hybrid:
   - '\bhybrid\b'

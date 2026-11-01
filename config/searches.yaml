@@ -69,6 +69,7 @@ roles:
 
 slicing:
   cap: 1000
+  split_by_facets: false
   dual_sort_on_capped_leaf: true
   sub_locations: false
 

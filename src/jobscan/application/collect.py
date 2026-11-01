@@ -94,10 +94,12 @@ class Collector:
                 split = needs_split(count, cap=self._settings.app.slicing.cap)
                 if count is None and cards_seen == 0:
                     split = False
-                children = plan_children(spec, dual_sort=self._settings.app.slicing.dual_sort_on_capped_leaf)
+                slicing = self._settings.app.slicing
+                children = plan_children(spec, dual_sort=slicing.dual_sort_on_capped_leaf) \
+                    if slicing.split_by_facets else []
                 self._store.finish_slice(slice_id, pages=pages, cards=cards_seen,
                                          hit_cap=split and reached_cap and not children)
-                if split and reached_cap:
+                if split:
                     stack.extend((child, slice_id) for child in reversed(children))
 
     def _paginate(self, spec: SliceSpec, slice_id: str) -> tuple[int, int, bool]:
@@ -123,8 +125,6 @@ class Collector:
             cards_seen += len(cards)
             if start + linkedin.PAGE_SIZE >= cap:
                 reached_cap = True
-            if len(cards) < linkedin.PAGE_SIZE:
-                break
         self._progress(f"slice {spec.role}/{spec.country} f_E={spec.f_e} f_JT={spec.f_jt} "
                        f"sort={spec.sort_by}: {cards_seen} cards")
         return pages, cards_seen, reached_cap
