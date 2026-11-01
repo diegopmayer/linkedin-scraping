@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 import yaml
+from dotenv import load_dotenv
 
 from jobscan.adapters.llm_classifier import HaikuEligibilityLlm
 from jobscan.adapters.store import DuckDbStore
@@ -62,6 +63,7 @@ def test_rules_never_exclude_non_restricted(scanner: RestrictionScanner, case: d
 
 @pytest.mark.llm
 def test_full_eligibility_with_llm(base_settings: Settings, scanner: RestrictionScanner, tmp_path: Path) -> None:
+    load_dotenv(Path(base_settings.base_dir) / ".env")
     cache_path = Path(base_settings.base_dir) / "data" / "golden_llm_cache.duckdb"
     store = DuckDbStore(cache_path)
     llm = HaikuEligibilityLlm(base_settings.app.llm.model_copy(update={"enabled": True}), store)
