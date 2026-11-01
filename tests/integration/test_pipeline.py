@@ -8,7 +8,7 @@ import pytest
 
 from jobscan.adapters.store import DuckDbStore
 from jobscan.config import Settings
-from tests.conftest import FakeLlm, World, build_pipeline, detail_page, keyword_llm, make_settings
+from tests.conftest import FakeLlm, World, build_pipeline, detail_page, keyword_llm, list_page, make_settings
 
 US_IDS = [str(i) for i in range(1, 41)]
 CA_IDS = ["101", "102", "103"]
@@ -68,7 +68,7 @@ def make_world(**kwargs: object) -> World:
 
 @pytest.fixture
 def small_settings(base_settings: Settings, tmp_path: Path) -> Settings:
-    return make_settings(base_settings, tmp_path, cap=30)
+    return make_settings(base_settings, tmp_path, cap=30, split_by_facets=True)
 
 
 @pytest.fixture
@@ -148,7 +148,7 @@ def test_dedup_across_slices(small_settings: Settings, small_store: DuckDbStore)
 
 
 def test_capped_slice_is_split_and_reported(base_settings: Settings, tmp_path: Path) -> None:
-    settings = make_settings(base_settings, tmp_path, cap=20)
+    settings = make_settings(base_settings, tmp_path, cap=20, split_by_facets=True)
     store = DuckDbStore(settings.path(settings.app.paths.database))
     world = World(count_for=lambda url: "50+", cards_for=lambda url: [(i, "Data Engineer") for i in US_IDS],
                   detail_for=detail_for)
@@ -233,3 +233,55 @@ def test_count_only_writes_six_rows(settings: Settings, store: DuckDbStore) -> N
     assert all(r["displayed_count_raw"] == "10,000+" and r["is_lower_bound"] == "True" for r in us)
     assert all(r["displayed_count"] == "797" for r in rows if r["country"] == "Canada")
     assert len([u for u in world.log if "/jobs/search" in u]) == 6
+
+
+class ShortPageWorld(World):
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/seeMoreJobPostings/search"):
+            self.log.append(str(request.url))
+            start = int(request.url.params.get("start", "0"))
+            pages = {0: [str(i) for i in range(500, 510)], 10: [str(i) for i in range(510, 519)],
+                     20: [str(i) for i in range(519, 529)]}
+            return httpx.Response(200, text=list_page([(i, "Data Engineer") for i in pages.get(start, [])]))
+        return super().handler(request)
+
+
+def test_short_page_mid_results_does_not_stop_pagination(small_settings: Settings, small_store: DuckDbStore) -> None:
+    world = ShortPageWorld(count_for=lambda url: "29", cards_for=lambda url: [],
+                           detail_for=lambda job_id: (200, detail_page("Data Engineer", "<p>Remote.</p>")))
+    run_once(small_settings, small_store, world, None, countries={"United States"})
+    assert small_store.con.execute("SELECT count(*) FROM jobs").fetchone()[0] == 29
+
+
+def test_split_when_count_says_more_even_if_root_ends_early(base_settings: Settings, tmp_path: Path) -> None:
+    settings = make_settings(base_settings, tmp_path, cap=30, split_by_facets=True)
+    store = DuckDbStore(settings.path(settings.app.paths.database))
+
+    def counts(url: httpx.URL) -> str:
+        if "f_E" not in url.params:
+            return "7,000+"
+        return "10" if url.params["f_E"] == "4" else "0"
+
+    def cards(url: httpx.URL) -> list[tuple[str, str]]:
+        if "f_E" not in url.params:
+            return [(str(i), "Data Engineer") for i in range(1, 16)]
+        return [(str(i), "Data Engineer") for i in range(200, 210)]
+
+    world = World(count_for=counts, cards_for=cards, detail_for=detail_for)
+    run_once(settings, store, world, None, countries={"United States"})
+    assert store.con.execute("SELECT count(*) FROM jobs").fetchone()[0] == 25
+    assert store.con.execute("SELECT count(*) FROM slices WHERE depth = 1").fetchone()[0] == 6
+    store.close()
+
+
+def test_no_facet_split_by_default_marks_capped_root(base_settings: Settings, tmp_path: Path) -> None:
+    settings = make_settings(base_settings, tmp_path, cap=20)
+    store = DuckDbStore(settings.path(settings.app.paths.database))
+    world = World(count_for=lambda url: "7,000+", cards_for=lambda url: [(i, "Data Engineer") for i in US_IDS],
+                  detail_for=detail_for)
+    outcome = run_once(settings, store, world, None, countries={"United States"})
+    assert store.con.execute("SELECT max(depth), count(*) FROM slices").fetchone() == (0, 1)
+    assert store.con.execute("SELECT count(*) FROM jobs").fetchone()[0] == 20
+    assert len(store.capped_slices(outcome.run_id)) == 1
+    assert not [u for u in world.log if "f_E=" in u]
+    store.close()

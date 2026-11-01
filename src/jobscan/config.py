@@ -42,6 +42,7 @@ class RoleConfig(_Strict):
 
 class SlicingConfig(_Strict):
     cap: int = 1000
+    split_by_facets: bool = False
     dual_sort_on_capped_leaf: bool = True
     sub_locations: bool = False
 

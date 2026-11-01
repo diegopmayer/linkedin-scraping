@@ -29,3 +29,8 @@ def classifier(base_settings: Settings) -> RemoteClassifier:
 )
 def test_remote_status(classifier: RemoteClassifier, text: str, expected: RemoteStatus) -> None:
     assert classifier.classify(text) is expected
+
+
+def test_hybrid_engineering_role_is_not_hybrid_work(classifier: RemoteClassifier) -> None:
+    text = "This hybrid engineering and customer-facing role is fully remote."
+    assert classifier.classify(text) is RemoteStatus.REMOTE

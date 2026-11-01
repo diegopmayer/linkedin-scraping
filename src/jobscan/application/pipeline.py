@@ -22,7 +22,7 @@ from jobscan.domain.errors import BlockedError, JobscanError, LockedError, Marku
 logger = logging.getLogger(__name__)
 
 STAGES = ("collect", "details", "classify", "report", "done")
-ASSUMED_TITLE_MATCH_RATIO = 0.35
+ASSUMED_TITLE_MATCH_RATIO = 0.10
 ASSUMED_LLM_RATIO = 0.8
 ASSUMED_COST_PER_LLM_CALL_USD = 0.00033
 PARENT_FIRST_OVERHEAD = 1.3
