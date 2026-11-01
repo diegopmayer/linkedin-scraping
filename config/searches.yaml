@@ -95,6 +95,11 @@ report:
   audit_sample_per_label: 10
   top_technologies: 30
 
+# Copies of one posting (same company + same title + description at least this
+# similar, word 5-gram Jaccard) are counted once in the report. 1.0 = identical text only.
+dedup:
+  min_similarity: 0.9
+
 paths:
   database: data/jobscan.duckdb
   reports_dir: reports

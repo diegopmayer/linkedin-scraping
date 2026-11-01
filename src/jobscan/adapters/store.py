@@ -11,6 +11,7 @@ from typing import Any
 
 import duckdb
 
+from jobscan.domain.dedup import PostingCandidate
 from jobscan.domain.models import Classification, DisplayedCount, JobCard, JobDetail, RemoteStatus, SliceSpec, TechHit
 from jobscan.domain.text import text_hash
 
@@ -298,9 +299,14 @@ class DuckDbStore:
             "count(DISTINCT q.job_id) AS qualified, "
             "count(DISTINCT CASE WHEN q.eligibility_label = 'LATAM_FRIENDLY' THEN q.job_id END) AS latam_friendly, "
             "count(DISTINCT CASE WHEN q.eligibility_label = 'UNCLEAR' THEN q.job_id END) AS unclear, "
-            "count(DISTINCT CASE WHEN q.eligibility_label = 'US_CA_ONLY' THEN q.job_id END) AS us_ca_only "
+            "count(DISTINCT CASE WHEN q.eligibility_label = 'US_CA_ONLY' THEN q.job_id END) AS us_ca_only, "
+            "count(DISTINCT q.posting_id) AS unique_postings, "
+            "count(DISTINCT CASE WHEN q.posting_label = 'LATAM_FRIENDLY' THEN q.posting_id END) "
+            "AS unique_latam_friendly, "
+            "count(DISTINCT CASE WHEN q.posting_label = 'UNCLEAR' THEN q.posting_id END) AS unique_unclear, "
+            "count(DISTINCT CASE WHEN q.posting_label = 'US_CA_ONLY' THEN q.posting_id END) AS unique_us_ca_only "
             "FROM job_sightings js LEFT JOIN job_roles jr ON jr.job_id = js.job_id "
-            "LEFT JOIN v_qualified q ON q.job_id = jr.job_id AND q.run_id = js.run_id WHERE js.run_id = ?",
+            "LEFT JOIN v_qualified_postings q ON q.job_id = jr.job_id AND q.run_id = js.run_id WHERE js.run_id = ?",
             [run_id],
         )
         return rows[0]
@@ -348,20 +354,21 @@ class DuckDbStore:
         )
 
     def tech_ranking(self, run_id: str, *, by: str | None, limit: int) -> list[dict[str, Any]]:
-        group_col = {"role": "jr.role", "label": "q.eligibility_label", "country": "s.country", None: "'all'"}[by]
+        group_col = {"role": "jr.role", "label": "q.posting_label", "country": "s.country", None: "'all'"}[by]
         sql = f"""
             WITH base AS (
-                SELECT DISTINCT {group_col} AS grp, q.job_id
-                FROM v_qualified q
+                SELECT DISTINCT {group_col} AS grp, q.posting_id, q.job_id
+                FROM v_qualified_postings q
                 JOIN job_roles jr ON jr.job_id = q.job_id
                 JOIN job_sightings js ON js.job_id = q.job_id AND js.run_id = q.run_id
                 JOIN slices sl ON sl.slice_id = js.slice_id
                 JOIN searches s ON s.search_id = sl.search_id
                 WHERE q.run_id = ?
-            ), totals AS (SELECT grp, count(DISTINCT job_id) AS jobs_in_group FROM base GROUP BY grp),
+            ), totals AS (SELECT grp, count(DISTINCT posting_id) AS jobs_in_group FROM base GROUP BY grp),
             ranked AS (
-                SELECT b.grp, t.canonical, t.category, count(DISTINCT b.job_id) AS jobs,
-                       row_number() OVER (PARTITION BY b.grp ORDER BY count(DISTINCT b.job_id) DESC, t.canonical) AS rk
+                SELECT b.grp, t.canonical, t.category, count(DISTINCT b.posting_id) AS jobs,
+                       row_number() OVER (PARTITION BY b.grp
+                                          ORDER BY count(DISTINCT b.posting_id) DESC, t.canonical) AS rk
                 FROM base b JOIN job_technologies jt ON jt.job_id = b.job_id
                 JOIN technologies t ON t.tech_id = jt.tech_id
                 GROUP BY b.grp, t.canonical, t.category
@@ -383,27 +390,71 @@ class DuckDbStore:
             "SELECT q.job_id, j.title, j.company, j.location_text, j.posted_at, j.url, "
             "string_agg(DISTINCT jr.role, ', ' ORDER BY jr.role) AS roles, "
             "q.eligibility_label, q.method, q.confidence, q.restriction_type, q.remote_status, "
-            "q.evidence_json, q.reasoning, d.seniority, d.employment_type "
-            "FROM v_qualified q JOIN jobs j ON j.job_id = q.job_id "
+            "q.evidence_json, q.reasoning, d.seniority, d.employment_type, q.posting_id, q.copies "
+            "FROM v_qualified_postings q JOIN jobs j ON j.job_id = q.job_id "
             "JOIN job_roles jr ON jr.job_id = q.job_id JOIN job_details d ON d.job_id = q.job_id "
             f"WHERE q.run_id = ?{label_filter} "
             "GROUP BY ALL ORDER BY q.eligibility_label, j.posted_at DESC NULLS LAST, j.company"
         )
         return self._rows(sql, params)
 
+    def dedup_candidates(self, run_id: str) -> list[PostingCandidate]:
+        rows = self.con.execute(
+            "SELECT q.job_id, j.company, j.title, coalesce(d.description_text, ''), j.posted_at "
+            "FROM v_qualified q JOIN jobs j ON j.job_id = q.job_id JOIN job_details d ON d.job_id = q.job_id "
+            "WHERE q.run_id = ? ORDER BY q.job_id",
+            [run_id],
+        ).fetchall()
+        return [PostingCandidate(str(r[0]), str(r[1]), str(r[2]), str(r[3]), r[4]) for r in rows]
+
+    def put_postings(self, run_id: str, mapping: dict[str, str]) -> None:
+        self.con.execute("DELETE FROM postings WHERE run_id = ?", [run_id])
+        if mapping:
+            self.con.executemany("INSERT INTO postings VALUES (?, ?, ?)",
+                                 [[run_id, job_id, posting_id] for job_id, posting_id in mapping.items()])
+
+    def qualified_postings(self, run_id: str) -> list[dict[str, Any]]:
+        """One row per posting: its newest copy, the posting's label and where the copies are."""
+        return self._rows(
+            "WITH copies AS (SELECT q.posting_id, string_agg(DISTINCT j.location_text, '; ' "
+            "ORDER BY j.location_text) AS locations FROM v_qualified_postings q JOIN jobs j ON j.job_id = q.job_id "
+            "WHERE q.run_id = ? GROUP BY q.posting_id) "
+            "SELECT q.job_id, j.title, j.company, j.location_text, j.posted_at, j.url, "
+            "string_agg(DISTINCT jr.role, ', ' ORDER BY jr.role) AS roles, "
+            "q.posting_label AS eligibility_label, q.method, q.confidence, q.restriction_type, q.remote_status, "
+            "q.evidence_json, q.reasoning, d.seniority, d.employment_type, q.copies, c.locations "
+            "FROM v_qualified_postings q JOIN jobs j ON j.job_id = q.job_id "
+            "JOIN job_roles jr ON jr.job_id = q.job_id JOIN job_details d ON d.job_id = q.job_id "
+            "JOIN copies c ON c.posting_id = q.posting_id "
+            "WHERE q.run_id = ? AND q.job_id = q.posting_id "
+            "GROUP BY ALL ORDER BY q.posting_label, j.posted_at DESC NULLS LAST, j.company",
+            [run_id, run_id],
+        )
+
+    def largest_postings(self, run_id: str, *, limit: int) -> list[dict[str, Any]]:
+        return self._rows(
+            "SELECT j.company, j.title, q.copies, q.posting_label AS eligibility_label "
+            "FROM v_qualified_postings q JOIN jobs j ON j.job_id = q.job_id "
+            "WHERE q.run_id = ? AND q.job_id = q.posting_id AND q.copies > 1 "
+            "ORDER BY q.copies DESC, j.company, j.title LIMIT ?",
+            [run_id, limit],
+        )
+
     def audit_sample(self, run_id: str, *, per_label: int) -> list[dict[str, Any]]:
         return self._rows(
-            "SELECT * FROM (SELECT q.eligibility_label, q.method, q.confidence, j.title, j.company, j.url, "
-            "q.evidence_json, row_number() OVER (PARTITION BY q.eligibility_label ORDER BY hash(q.job_id || ?)) AS rn "
-            "FROM v_qualified q JOIN jobs j ON j.job_id = q.job_id WHERE q.run_id = ?) WHERE rn <= ? "
+            "SELECT * FROM (SELECT q.posting_label AS eligibility_label, q.method, q.confidence, j.title, j.company, "
+            "j.url, q.evidence_json, "
+            "row_number() OVER (PARTITION BY q.posting_label ORDER BY hash(q.job_id || ?)) AS rn "
+            "FROM v_qualified_postings q JOIN jobs j ON j.job_id = q.job_id "
+            "WHERE q.run_id = ? AND q.job_id = q.posting_id) WHERE rn <= ? "
             "ORDER BY eligibility_label, rn",
             [run_id, run_id, per_label],
         )
 
     def qualified_descriptions(self, run_id: str) -> list[str]:
         rows = self.con.execute(
-            "SELECT d.description_text FROM v_qualified q JOIN job_details d ON d.job_id = q.job_id "
-            "WHERE q.run_id = ?",
+            "SELECT d.description_text FROM v_qualified_postings q JOIN job_details d ON d.job_id = q.job_id "
+            "WHERE q.run_id = ? AND q.job_id = q.posting_id",
             [run_id],
         ).fetchall()
         return [str(row[0] or "") for row in rows]

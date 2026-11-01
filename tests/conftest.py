@@ -20,20 +20,21 @@ def count_page(raw: str) -> str:
     return f'<html><body><h1><span class="results-context-header__job-count">{raw}</span> jobs</h1></body></html>'
 
 
-def card_html(job_id: str, title: str, *, location: str = "United States") -> str:
+def card_html(job_id: str, title: str, *, location: str = "United States", company: str | None = None) -> str:
     return (
         f'<li><div class="base-card relative" data-entity-urn="urn:li:jobPosting:{job_id}">'
         f'<a class="base-card__full-link absolute" href="https://www.linkedin.com/jobs/view/job-{job_id}?trk=x"></a>'
         f'<div class="base-search-card__info"><h3 class="base-search-card__title">\n  {title}\n</h3>'
         f'<h4 class="base-search-card__subtitle"><a class="hidden-nested-link" '
-        f'href="https://www.linkedin.com/company/acme-{job_id}?trk=y">Acme {job_id}</a></h4>'
+        f'href="https://www.linkedin.com/company/acme-{job_id}?trk=y">{company or f"Acme {job_id}"}</a></h4>'
         f'<span class="job-search-card__location">{location}</span>'
         f'<time class="job-search-card__listdate" datetime="2026-10-27">3 days ago</time></div></div></li>'
     )
 
 
-def list_page(cards: list[tuple[str, str]]) -> str:
-    return "".join(card_html(job_id, title) for job_id, title in cards)
+def list_page(cards: list[tuple[str, str]], company_for: Callable[[str], str | None] | None = None) -> str:
+    return "".join(card_html(job_id, title, company=company_for(job_id) if company_for else None)
+                   for job_id, title in cards)
 
 
 def detail_page(title: str, description_html: str, *, closed: bool = False, seniority: str = "Mid-Senior level") -> str:
@@ -126,6 +127,7 @@ class World:
     log: list[str] = field(default_factory=list)
     block_detail_after: int | None = None
     detail_requests: int = 0
+    company_for: Callable[[str], str | None] | None = None
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         url = request.url
@@ -139,7 +141,7 @@ class World:
             if start >= 1000:
                 return httpx.Response(400, text="")
             cards = self.cards_for(url)
-            return httpx.Response(200, text=list_page(cards[start: start + 10]))
+            return httpx.Response(200, text=list_page(cards[start: start + 10], self.company_for))
         if "/jobPosting/" in path:
             self.detail_requests += 1
             if self.block_detail_after is not None and self.detail_requests > self.block_detail_after:

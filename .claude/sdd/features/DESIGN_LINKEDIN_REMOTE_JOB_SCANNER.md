@@ -249,6 +249,30 @@ Layering follows `kb/python/patterns/clean-architecture.md`: **domain** (pure fu
 
 ---
 
+### Decision 7: Count copies of one posting once
+
+| Attribute | Value |
+|-----------|-------|
+| **Status** | Accepted |
+| **Date** | 2026-11-01 |
+
+**Context:** The first full run (`20261101T024121Z`) found 1,284 qualified jobs, but many were one job posted once per city (Capital One posted "Data Engineer 4" 22 times with 8 slightly different descriptions; Deloitte "Data Engineer III" 50 times). Copies inflated counts and technology shares. Grouping by exact description hash misses copies that differ only in a city or salary line; grouping by title alone wrongly merges different openings (TCS posts eight different "Data Engineer" jobs).
+
+**Choice:** In the report step, `domain/dedup.group_postings` groups qualified jobs with the same normalised company and title whose descriptions have word 5-gram Jaccard similarity ≥ `dedup.min_similarity` (default 0.9; 1.0 = identical only), using union-find so chains of near-copies join. The newest copy (then the smallest job id) represents the posting. The `postings` table stores the mapping per run, and `v_qualified_postings` gives each posting the most restrictive label of its copies (US_CA_ONLY > UNCLEAR > LATAM_FRIENDLY). Counts, technology shares, the can-apply and unclear lists, the audit sample and unknown terms all count postings; `jobs_all.csv` keeps every job with its `posting_id`.
+
+**Rationale:** On the real run, same-company + same-title pairs were either near-identical (≥ 0.9) or clearly different (mostly < 0.5), so the threshold has a wide margin. Running at report time means old runs can be re-reported with no new requests. Taking the most restrictive label keeps the safe-by-default rule: dedup can never create a LATAM-friendly posting.
+
+**Alternatives Rejected:**
+1. Exact description hash: misses copies with per-city salary lines.
+2. Company + title only: merges different requisitions.
+3. Dedup at collection time: would lose per-job sightings and break per-search counts.
+
+**Consequences:**
+- Real run: 1,284 qualified jobs → 764 postings. 3 postings had copies the LLM labelled differently (UNCLEAR vs US_CA_ONLY on near-identical text); they count as US_CA_ONLY.
+- Copies posted in both countries count once in the overall total and once in each country's row.
+
+---
+
 ## File Manifest
 
 | # | File | Action | Purpose | Agent | Dependencies |
@@ -1154,6 +1178,7 @@ This is at or above the DEFINE target of ≤ 6 h. Mitigations: `--role` / `--cou
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.2 | 2026-11-01 | build-agent | Decision 7: posting dedup (`domain/dedup.py`, `postings` table, `v_qualified_postings`, `dedup.min_similarity`). Collector fixes: no early stop on short pages, facet splitting opt-in (`slicing.split_by_facets`, default false) because the guest API ignores `f_E`/`f_JT`/`sortBy` |
 | 1.1 | 2026-10-31 | build-agent | Status → Complete (Built). Deviations recorded in the build report (lexbor parser backend, additive columns/table) |
 | 1.0 | 2026-10-31 | design-agent | Initial version. Verified page size (10), offset step (10), card/detail selectors, "Not Applicable" seniority; added parent-first slicing; DE-Q4 pattern fix; run-time estimate shows the 6 h target is tight (re-baseline after M2) |
 
